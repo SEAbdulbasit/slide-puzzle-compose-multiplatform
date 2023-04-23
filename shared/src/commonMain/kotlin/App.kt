@@ -1,3 +1,5 @@
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -29,6 +31,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -42,6 +45,7 @@ fun App() {
             Modifier.fillMaxSize(), contentAlignment = Alignment.Center
         ) {
             StarsBackground()
+            MeteoroidAnimation(Modifier)
             PuzzleGame()
         }
     }
@@ -102,13 +106,13 @@ fun PuzzleGame() {
                                     2.dp,
                                     color = Color.White.copy(alpha = 0.6f),
                                 ),
-                                shape = RoundedCornerShape(5.dp)
+                                shape = RoundedCornerShape(16.dp)
                             )
                             .size(100.dp).background(
                                 color = if (isTileInRightPos) Color.Gray.copy(0.5f) else Color.White.copy(
                                     alpha = 0.1f
                                 ),
-                                shape = RoundedCornerShape(8.dp),
+                                shape = RoundedCornerShape(16.dp),
                             )
                             .clickable {
                                 moveTile(position)
@@ -153,6 +157,30 @@ fun StarsBackground() {
         }
     }
 
+    val infiniteTransition = rememberInfiniteTransition()
+
+    // Add moon to the list
+    val moon = remember {
+        Star(
+            x = 0f,
+            y = 0.4f,
+            radius = 80f,
+            brightness = 1f
+        )
+    }
+
+    // Animate moon position
+    val moonPosition by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(15000, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        )
+    )
+
+    moon.x = moonPosition
+
     Canvas(modifier = Modifier.fillMaxSize()) {
         val width = size.width
         val height = size.height
@@ -171,7 +199,6 @@ fun StarsBackground() {
 
     // Draw the stars
     stars.forEach { star ->
-        val infiniteTransition = rememberInfiniteTransition()
         val brightness by infiniteTransition.animateFloat(
             initialValue = star.brightness,
             targetValue = 1f - star.brightness,
@@ -191,10 +218,123 @@ fun StarsBackground() {
             )
         }
     }
+
+    // Draw the moon
+    Canvas(modifier = Modifier.fillMaxSize()) {
+        drawCircle(
+            color = Color.White,
+            radius = moon.radius,
+            center = Offset(moon.x * this.size.width, moon.radius * 4)
+        )
+    }
 }
+
+@Composable
+fun MeteoroidAnimation(modifier: Modifier) {
+    val meteoroids = remember { mutableStateListOf<Meteoroid>() }
+
+    LaunchedEffect(true) {
+        // Add meteoroids to the list
+        repeat(20) {
+            meteoroids.add(
+                Meteoroid(
+                    x = Random.nextFloat(),
+                    y = Random.nextFloat(),
+                    size = Random.nextFloat().coerceIn(10f, 20f),
+                    speed = Random.nextInt(10, 30).toFloat()
+                )
+            )
+        }
+    }
+
+    Canvas(modifier = modifier.fillMaxSize()) {
+        val width = size.width
+        val height = size.height
+
+        // Draw the meteoroids
+        meteoroids.forEach { meteoroid ->
+            // Move the meteoroid
+            meteoroid.x += meteoroid.speed / 1000f
+
+            // If the meteoroid is off-screen, reset it
+            if (meteoroid.x > 1f) {
+                meteoroid.x = -meteoroid.size
+                meteoroid.y = Random.nextFloat()
+                meteoroid.speed = Random.nextInt(10, 30).toFloat()
+            }
+
+            // Draw the meteoroid
+            drawCircle(
+                color = Color.Gray,
+                radius = meteoroid.size,
+                center = Offset(meteoroid.x * width, meteoroid.y * height)
+            )
+        }
+    }
+}
+
+data class Meteoroid(
+    var x: Float,
+    var y: Float,
+    val size: Float,
+    var speed: Float
+)
+
+
+@Composable
+fun FlameAnimation(
+    modifier: Modifier = Modifier,
+    durationMillis: Int = 1000,
+    color: Color = Color.Yellow
+) {
+    val animProgress = remember { Animatable(0f) }
+
+    LaunchedEffect(Unit) {
+        animProgress.animateTo(
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = durationMillis),
+                repeatMode = RepeatMode.Reverse
+            )
+        )
+    }
+
+    val path = remember {
+        Path().apply {
+            moveTo(0f, 0f)
+            lineTo(20f, 40f)
+            lineTo(10f, 30f)
+            lineTo(30f, 70f)
+            lineTo(20f, 60f)
+            lineTo(40f, 100f)
+            lineTo(0f, 60f)
+            lineTo(-20f, 100f)
+            lineTo(0f, 50f)
+        }
+    }
+
+    Canvas(modifier = modifier) {
+        val colorAlpha = (1f - animProgress.value) * 0.5f
+        val brush = Brush.linearGradient(
+            colors = listOf(
+                color.copy(alpha = colorAlpha),
+                color.copy(alpha = 0f)
+            )
+        )
+        drawPath(path, brush)
+    }
+}
+
 
 data class Star(
     var x: Float, var y: Float, var radius: Float, var brightness: Float
+)
+
+data class Moon(
+    var x: Float,
+    var y: Float,
+    val radius: Float,
+    val color: Color,
 )
 
 
