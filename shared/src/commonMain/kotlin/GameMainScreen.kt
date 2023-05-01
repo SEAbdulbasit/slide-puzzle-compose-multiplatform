@@ -81,6 +81,7 @@ fun PuzzleTiles(puzzleSize: Int, boxWidth: Float) {
             emptyTilePosition.value = position
 
             if (isPuzzleSolved()) {
+                //TODO add dialog when puzzle solved
             }
         }
     }
